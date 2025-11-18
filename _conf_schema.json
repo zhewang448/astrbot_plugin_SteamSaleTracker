@@ -4,5 +4,11 @@
       "type": "int",
       "hint": "整数（分钟）", 
       "default": 30
+  },
+  "steam_api_key": { 
+      "description": "Steam API 密钥", 
+      "type": "string",
+      "hint": "字符串,通过https://steamcommunity.com/dev/apikey获取", 
+      "default": ""
   }
 } 

@@ -15,7 +15,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
     "astrbot_plugin_SteamSaleTracker",
     "bushikq",
     "一个监控steam游戏价格变动的astrbot插件",
-    "1.1.3",
+    "1.1.4",
 )
 class SteamSaleTrackerPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -40,6 +40,11 @@ class SteamSaleTrackerPlugin(Star):
         self.config = config
         # 从配置中获取价格检查间隔时间，默认为 30 分钟
         self.interval_minutes = self.config.get("interval_minutes", 30)
+
+        # 通过https://store.steampowered.com/pointssummary/ajaxgetasyncconfig获取access_token密钥(废案)
+        # 通过https://steamcommunity.com/dev/apikey获取apikey(推荐)
+        self.steam_api_key = self.config.get("steam_api_key")
+
         logger.info("正在初始化SteamSaleTracker插件")
 
         self.scheduler = AsyncIOScheduler()
@@ -62,12 +67,12 @@ class SteamSaleTrackerPlugin(Star):
     async def get_app_list(self):
         """获取Steam全量游戏列表（AppID + 名称），并缓存到 game_list.json"""
         try:
-            url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
+            url = f"https://api.steampowered.com/IStoreService/GetAppList/v1/?key={self.steam_api_key}"
             async with aiohttp.ClientSession() as session:  # 使用 aiohttp 替代 requests
                 async with session.get(url) as response:
                     res = await response.json()
             self.app_dict_all = {
-                app["name"]: app["appid"] for app in res["applist"]["apps"]
+                app["name"]: app["appid"] for app in res["response"]["apps"]
             }
             self.app_dict_all_reverse = {v: k for k, v in self.app_dict_all.items()}
             with open(self.json1_path, "w", encoding="utf-8") as f:

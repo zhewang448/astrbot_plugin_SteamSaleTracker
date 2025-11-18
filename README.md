@@ -1,6 +1,6 @@
 # 🎮 Steam 游戏价格监控插件 astrbot_plugin_SteamSaleTracker
 
-## v1.1.2
+## v1.1.4
 
 这是一个 Steam 游戏价格监控插件。您可以订阅您感兴趣的游戏，插件将定期检查这些游戏的价格，并在价格发生变化时（例如降价、涨价或变为免费）及时通知您。
 
@@ -37,6 +37,7 @@
 您可以在 AstrBot 的配置文件中配置以下项：
 
 - `interval_minutes`: 插件检查游戏价格的间隔时间（单位：分钟，默认：`30` 分钟）。
+- `steam_api_key`: Steam API 密钥，用于获取游戏价格。通过 [Steam Web API](https://steamcommunity.com/dev/apikey) 获取。
 
 ## 已知问题和 ToDo List
 
@@ -44,11 +45,18 @@
 
 ## 重要更新日志:
 
+### v1.1.4
+
+- 修复了 api 失效的问题。
+- 添加了 steam api 的配置项。
+
 ### v1.1.0
 
 - 支持使用游戏 id 进行订阅或取消订阅。
 
 ## 注意事项
+
+一定要配置好 Steam API 密钥，否则插件将无法正常工作。通过 [Steam Web API](https://steamcommunity.com/dev/apikey) 获取。
 
 信息来自 Steam 官方 API，请遵守相关使用规则。
 如果对功能方面有想法，或者遇到问题，欢迎提 [issue](https://github.com/zhewang448/astrbot_plugin_SteamSaleTracker/issues) 反馈。
