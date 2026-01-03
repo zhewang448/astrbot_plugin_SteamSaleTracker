@@ -15,7 +15,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
     "astrbot_plugin_SteamSaleTracker",
     "bushikq",
     "一个监控steam游戏价格变动的astrbot插件",
-    "1.1.4",
+    "1.1.5",
 )
 class SteamSaleTrackerPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
@@ -66,34 +66,91 @@ class SteamSaleTrackerPlugin(Star):
 
     async def get_app_list(self):
         """获取Steam全量游戏列表（AppID + 名称），并缓存到 game_list.json"""
+        logger.info("开始获取 Steam 全量游戏列表...")
+
+        all_apps = []
+        last_appid = 0
+        have_more_results = True
+        max_results = 50000
+
+        # 规范链接，方便后续维护
+        # 排除硬件和视频类型
+        base_url = (
+            f"https://api.steampowered.com/IStoreService/GetAppList/v1/"
+            f"?key={self.steam_api_key}"
+            f"&max_results={max_results}"
+            f"&include_games=true"
+            f"&include_dlc=true"
+            f"&include_software=true"
+            f"&include_videos=false"
+            f"&include_hardware=false"
+        )
+
         try:
-            url = f"https://api.steampowered.com/IStoreService/GetAppList/v1/?key={self.steam_api_key}"
-            async with aiohttp.ClientSession() as session:  # 使用 aiohttp 替代 requests
-                async with session.get(url) as response:
-                    res = await response.json()
+            async with aiohttp.ClientSession() as session:
+                while have_more_results:
+                    # 拼接 last_appid
+                    url = f"{base_url}&last_appid={last_appid}"
+
+                    async with session.get(url) as response:
+                        if response.status != 200:
+                            logger.error(
+                                f"请求 Steam AppList 失败，状态码: {response.status}"
+                            )
+                            break
+
+                        res = await response.json()
+
+                        if not res or "response" not in res:
+                            logger.error("Steam API 返回数据格式异常")
+                            break
+
+                        data = res["response"]
+                        apps = data.get("apps", [])
+
+                        if apps:
+                            all_apps.extend(apps)
+                            logger.info(f"已获取 {len(all_apps)} 个应用...")
+
+                        # 获取have_more_results 和 last_appid
+                        have_more_results = data.get("have_more_results", False)
+
+                        if have_more_results:  # 还有剩余
+                            last_appid = data.get("last_appid")
+                            if last_appid is None:
+                                # 以防万一 API 抽风没给 last_appid，兜底使用列表最后一个
+                                last_appid = apps[-1]["appid"] if apps else 0
+
+                        # 避免请求过快
+                        await asyncio.sleep(0.2)
+
+            # 数据处理
             self.app_dict_all = {
-                app["name"]: app["appid"] for app in res["response"]["apps"]
+                app["name"]: app["appid"] for app in all_apps if "name" in app
             }
             self.app_dict_all_reverse = {v: k for k, v in self.app_dict_all.items()}
+
             with open(self.json1_path, "w", encoding="utf-8") as f:
                 json.dump(self.app_dict_all, f, ensure_ascii=False, indent=4)
-            logger.info("Steam游戏列表更新成功")
+
+            logger.info(
+                f"Steam游戏列表更新成功，共加载 {len(self.app_dict_all)} 个游戏。"
+            )
+
         except Exception as e:
             logger.error(f"获取游戏列表失败：{e}")
-            self.app_dict_all = {}  # 确保即使失败也初始化为空字典
-        finally:  # 无论成功失败，都尝试从文件中加载，避免空字典
-            if not self.app_dict_all:  # 如果上面失败了，尝试从本地文件加载
+            self.app_dict_all = {}
+        finally:
+            if not self.app_dict_all and self.json1_path.exists():
                 try:
                     with open(self.json1_path, "r", encoding="utf-8") as f:
                         self.app_dict_all = json.load(f)
                     self.app_dict_all_reverse = {
                         v: k for k, v in self.app_dict_all.items()
                     }
-                    logger.info("从本地文件加载Steam游戏列表成功")
-                except Exception as e:
-                    logger.error(f"从本地文件加载游戏列表失败：{e}")
-                    self.app_dict_all = {}  # 彻底失败则设置为空
-                    self.app_dict_all_reverse = {}
+                    logger.info("已回退使用本地缓存的游戏列表")
+                except Exception:
+                    logger.error("本地缓存的游戏列表加载失败")
 
     async def load_user_monitors(self):
         """加载用户监控列表（从 monitor_list.json 文件）"""
@@ -455,7 +512,7 @@ class SteamSaleTrackerPlugin(Star):
                 if parsed_current_origin["message_type"] == "GroupMessage":
                     msg = f"已成功在当前群组订阅《{game_name}》，价格变动将在群内通知并 @ 您（如果会话隔离开启）。"
                 else:  # FriendMessage
-                    msg = f"已成功订阅《{game_name}》，价格变动将私聊通知您。"
+                    msg = f"已为您订阅《{game_name}》 (AppID: {game_id})。如果这不是您想要的游戏，请使用 /steam取消订阅 删除。"
 
                 yield event.plain_result(msg)
 
