@@ -115,12 +115,15 @@ class SteamSaleTrackerPlugin(Star):
                         # 获取have_more_results 和 last_appid
                         have_more_results = data.get("have_more_results", False)
 
-                        if have_more_results:  # 还有剩余
-                            last_appid = data.get("last_appid")
-                            if last_appid is None:
-                                # 以防万一 API 抽风没给 last_appid，兜底使用列表最后一个
-                                last_appid = apps[-1]["appid"] if apps else 0
-
+                        if have_more_results:
+                            new_last_appid = data.get("last_appid")
+                            if new_last_appid is not None:
+                                last_appid = new_last_appid
+                            elif apps:
+                                last_appid = apps[-1]["appid"]
+                            else:
+                                logger.warning("Steam API 分页异常，强制终止更新列表")
+                                break
                         # 避免请求过快
                         await asyncio.sleep(0.2)
 
